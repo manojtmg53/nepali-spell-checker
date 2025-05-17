@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nepali Spell Checker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #2C7BE5;
+      --background-color: #F4F6F8;
+      --text-color: #1F2937;
+      --error-color: #EF4444;
+      --card-bg: #ffffff;
+    }
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: var(--background-color);
+      color: var(--text-color);
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      padding: 2rem;
+    }
+    header {
+      background: var(--primary-color);
+      color: white;
+      text-align: center;
+      padding: 1.5rem;
+      border-radius: 10px;
+      margin-bottom: 2rem;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1.5px solid #ccc;
+      font-size: 1rem;
+      resize: vertical;
+    }
+    .buttons {
+      margin: 1rem 0;
+      display: flex;
+      gap: 1rem;
+    }
+    button {
+      padding: 0.75rem 1.5rem;
+      background: var(--primary-color);
+      border: none;
+      color: white;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .clear-btn {
+      background: #6B7280;
+    }
+    .status {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #374151;
+    }
+    .stats {
+      display: flex;
+      gap: 2rem;
+      margin-top: 1rem;
+    }
+    .stat {
+      background: var(--card-bg);
+      flex: 1;
+      text-align: center;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .stat strong {
+      display: block;
+      font-size: 1.5rem;
+      color: var(--primary-color);
+    }
+    .suggestions, .highlighted-text {
+      margin-top: 1.5rem;
+    }
+    .suggestion-item {
+      background: #fff0f0;
+      border-left: 4px solid var(--error-color);
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      border-radius: 5px;
+    }
+    mark {
+      background-color: #FEF3C7;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>नेपाली हिज्जे जाँच</h1>
+      <p>नेपाली शब्दहरूको हिज्जे जाँच गर्नुहोस्</p>
+    </header>
+
+    <textarea id="input-text" placeholder="यहाँ नेपाली पाठ टाइप गर्नुहोस्..."></textarea>
+    <div class="buttons">
+      <button onclick="checkSpelling()">जाँच गर्नुहोस्</button>
+      <button onclick="clearText()" class="clear-btn">खाली गर्नुहोस्</button>
+    </div>
+    <div class="status" id="status">शब्दकोश लोड हुँदैछ...</div>
+
+    <div class="stats">
+      <div class="stat">
+        <strong id="word-count">0</strong>
+        <span>शब्दहरू</span>
+      </div>
+      <div class="stat">
+        <strong id="error-count">0</strong>
+        <span>गल्तीहरू</span>
+      </div>
+    </div>
+
+    <div class="highlighted-text" id="highlighted-text"></div>
+    <div class="suggestions" id="suggestions"></div>
+  </div>
+
+<script>
+const dictionaryChunksUrls = [
+  "https://drive.google.com/uc?export=download&id=1Bjry1-k5ObV7L-RL9Oc_-oqAjz972Egy",
+  "https://drive.google.com/uc?export=download&id=1HweBBBu7j83e_mUKNw0EpqVme2kilkyk",
+  "https://drive.google.com/uc?export=download&id=1ZMEc0Qqsd1aOYEkJ4XKxwexd5GaJu2tx",
+  "https://drive.google.com/uc?export=download&id=11-F5K8zSpOGthBZOzCiBvH6TMC9VPdeg",
+  "https://drive.google.com/uc?export=download&id=1oq-PMUYvW0jzt_6T5Aa90M5eQXCVJXU5",
+  "https://drive.google.com/uc?export=download&id=1jhaZK0bDyqjRXlw0oTEkmKHkQ7eD4WCO",
+  "https://drive.google.com/uc?export=download&id=1y3yJittP7NVPj65LKEMXku-xSLoNU0SY",
+  "https://drive.google.com/uc?export=download&id=1dEhMDX9Z6q6pRNMDhwCF_q99GdCV9BfN",
+  "https://drive.google.com/uc?export=download&id=1uZ_wuwxFXkUJsMXyYGFhT7H6u5uWXxmH",
+  "https://drive.google.com/uc?export=download&id=1oDtt14iww8y24Z_XyhnCWWc5r80LDI90",
+  "https://drive.google.com/uc?export=download&id=1tIE57zAWtdrzjViYtex8no_GV25Nw347",
+  "https://drive.google.com/uc?export=download&id=1q6szCWeXI_hMmA9836dNiMRqUsItOf4g",
+  "https://drive.google.com/uc?export=download&id=1GW4UEePwNTj0V8rrzfdJSmTb3VqgVg-7"
+];
+
+let dictionarySet = new Set();
+let dictionaryLoaded = false;
+let loadingError = false;
+
+async function loadDictionaryChunks() {
+  const status = document.getElementById('status');
+  for (const url of dictionaryChunksUrls) {
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      data.forEach(word => dictionarySet.add(word));
+    } catch (e) {
+      loadingError = true;
+      console.error('Error loading dictionary:', e);
+    }
+  }
+
+  if (!loadingError) {
+    dictionaryLoaded = true;
+    status.textContent = "शब्दकोश सफलतापूर्वक लोड भयो (" + dictionarySet.size + " शब्दहरू)";
+  } else {
+    status.textContent = "शब्दकोश लोड हुन सकेन। कृपया लिंकहरू जाँच गर्नुहोस्।";
+  }
+}
+
+async function checkSpelling() {
+  if (!dictionaryLoaded) {
+    alert("शब्दकोश लोड हुन बाँकी छ। कृपया केही समय प्रतीक्षा गर्नुहोस्।");
+    return;
+  }
+
+  const text = document.getElementById("input-text").value.trim();
+  const words = text.split(/\s+/);
+  const invalidWords = [];
+
+  document.getElementById("word-count").textContent = words.length;
+
+  words.forEach(word => {
+    const clean = word.replace(/[।!?;,:।]/g, "");
+    if (clean.length > 1 && !dictionarySet.has(clean)) {
+      invalidWords.push(clean);
+    }
+  });
+
+  document.getElementById("error-count").textContent = invalidWords.length;
+
+  let highlighted = text;
+  invalidWords.forEach(w => {
+    const regex = new RegExp(w.replace(/[.*+?^${}()|[\]\]/g, '\$&'), 'g');
+    highlighted = highlighted.replace(regex, `<mark>${w}</mark>`);
+  });
+
+  document.getElementById("highlighted-text").innerHTML = `<strong>जाँचिएको पाठ:</strong><br>${highlighted}`;
+
+  const suggestions = invalidWords.map((w, i) => `
+    <div class="suggestion-item">
+      गलत शब्द: <strong>${w}</strong><br>
+      सुझाव: <span id="sugg${i}">पुनः जाँच गर्नुहोस्</span>
+      <button onclick="copySuggestion('sugg${i}')">प्रतिलिपि</button>
+    </div>
+  `).join('');
+
+  document.getElementById("suggestions").innerHTML = suggestions;
+}
+
+function clearText() {
+  document.getElementById("input-text").value = "";
+  document.getElementById("word-count").textContent = "0";
+  document.getElementById("error-count").textContent = "0";
+  document.getElementById("highlighted-text").innerHTML = "";
+  document.getElementById("suggestions").innerHTML = "";
+}
+
+function copySuggestion(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    alert("सुझाव प्रतिलिपि भयो!");
+  });
+}
+
+loadDictionaryChunks();
+</script>
+</body>
+</html>
